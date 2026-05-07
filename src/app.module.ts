@@ -6,6 +6,8 @@ import { CouplesModule } from './couples/couples.module';
 import { EventsModule } from './events/events.module';
 import { AnniversariesModule } from './anniversaries/anniversaries.module';
 import { CyclesModule } from './cycles/cycles.module';
+import { UsersModule } from './users/users.module';
+import { AlbumsModule } from './albums/albums.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { CyclesModule } from './cycles/cycles.module';
     EventsModule,
     AnniversariesModule,
     CyclesModule,
+    UsersModule,
+    AlbumsModule,
   ],
 })
 export class AppModule {}

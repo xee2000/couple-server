@@ -20,8 +20,12 @@ export class CyclesController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.service.update(id, body);
+  update(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.service.update(id, user.id, body);
   }
 
   @Delete(':id')

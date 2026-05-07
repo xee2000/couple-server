@@ -28,6 +28,8 @@ export class AuthService {
     const kakaoId: number = kakaoUser.id;
     const nickname: string = kakaoUser.kakao_account?.profile?.nickname ?? '익명';
     const profileImage: string = kakaoUser.kakao_account?.profile?.profile_image_url ?? '';
+    // 카카오 성별: 동의 항목에 gender 추가 시 'male' | 'female' | null
+    const gender: string | null = kakaoUser.kakao_account?.gender ?? null;
 
     // 2. Supabase에서 유저 조회 or 생성
     const { data: existing } = await this.supabase.db
@@ -41,12 +43,21 @@ export class AuthService {
     if (!user) {
       const { data: created, error } = await this.supabase.db
         .from('users')
-        .insert({ kakao_id: kakaoId, nickname, profile_image: profileImage })
+        .insert({ kakao_id: kakaoId, nickname, profile_image: profileImage, gender })
         .select()
         .single();
 
       if (error) throw new Error(error.message);
       user = created;
+    } else if (gender && user.gender !== gender) {
+      // 동의 후 성별 정보가 새로 들어온 경우 업데이트
+      const { data: updated } = await this.supabase.db
+        .from('users')
+        .update({ gender })
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (updated) user = updated;
     }
 
     // 3. JWT 발급
