@@ -22,7 +22,15 @@ export class CouplesService {
     if (connected) {
       const isUser1 = connected.user1_id === userId;
       const partner = isUser1 ? connected.user2 : connected.user1;
-      return { data: { ...connected, partner_nickname: partner?.nickname ?? '연인' } };
+      const me = isUser1 ? connected.user1 : connected.user2;
+      return {
+        data: {
+          ...connected,
+          partner_nickname: partner?.nickname ?? '연인',
+          partner_profile_image: partner?.profile_image ?? null,
+          my_profile_image: me?.profile_image ?? null,
+        },
+      };
     }
 
     // 2) 미연결 상태 - 본인의 가장 최신 invite row 반환 (초대코드 표시용)
@@ -67,6 +75,29 @@ export class CouplesService {
       .select()
       .single();
     if (error) throw new BadRequestException(error.message);
+    return { data };
+  }
+
+  /** 처음 사귄날 저장 */
+  async updateStartDate(userId: string, startDate: string) {
+    const { data: couple } = await this.supabase.db
+      .from('couples')
+      .select('id')
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .not('user2_id', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!couple) throw new NotFoundException('연결된 커플이 없습니다.');
+
+    const { data, error } = await this.supabase.db
+      .from('couples')
+      .update({ start_date: startDate })
+      .eq('id', couple.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
     return { data };
   }
 

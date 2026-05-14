@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class EventsService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(
+    private supabase: SupabaseService,
+    private notifications: NotificationsService,
+  ) {}
 
   private async getCoupleId(userId: string): Promise<string> {
     const { data } = await this.supabase.db
@@ -22,7 +26,7 @@ export class EventsService {
 
     const { data } = await this.supabase.db
       .from('calendar_events')
-      .select('*')
+      .select('*, creator:users!created_by(nickname)')
       .eq('couple_id', coupleId)
       .gte('date', from)
       .lte('date', to)
@@ -38,7 +42,55 @@ export class EventsService {
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // 파트너에게 FCM 푸시 발송
+    await this.notifyPartner(userId, coupleId, body.title, body.date);
+
     return { data };
+  }
+
+  /** 파트너에게 일정 등록 알림 발송 */
+  private async notifyPartner(
+    userId: string,
+    coupleId: string,
+    eventTitle: string,
+    date: string,
+  ) {
+    try {
+      const { data: couple } = await this.supabase.db
+        .from('couples')
+        .select('user1_id, user2_id')
+        .eq('id', coupleId)
+        .single();
+      if (!couple) return;
+
+      const partnerId =
+        couple.user1_id === userId ? couple.user2_id : couple.user1_id;
+      if (!partnerId) return;
+
+      const [{ data: me }, { data: partner }] = await Promise.all([
+        this.supabase.db
+          .from('users')
+          .select('nickname')
+          .eq('id', userId)
+          .single(),
+        this.supabase.db
+          .from('users')
+          .select('fcm_token')
+          .eq('id', partnerId)
+          .single(),
+      ]);
+
+      if (!partner?.fcm_token) return;
+
+      const myName = me?.nickname ?? '파트너';
+      await this.notifications.sendToToken(
+        partner.fcm_token,
+        `📅 ${myName}님이 일정을 추가했어요`,
+        `${date} · ${eventTitle}`,
+        { type: 'new_event', screen: 'calendar' },
+      );
+    } catch (_) {}
   }
 
   async update(id: string, userId: string, body: any) {

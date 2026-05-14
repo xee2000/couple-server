@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { CouplesService } from './couples.service';
@@ -21,6 +21,15 @@ export class CouplesController {
     @Body('startDate') startDate?: string,
   ) {
     return this.service.createCouple(user.id, startDate);
+  }
+
+  /** 처음 사귄날 저장 */
+  @Patch('start-date')
+  updateStartDate(
+    @CurrentUser() user: { id: string },
+    @Body('startDate') startDate: string,
+  ) {
+    return this.service.updateStartDate(user.id, startDate);
   }
 
   /** 공유 끊기 (계정 유지, 공유 데이터 삭제) */

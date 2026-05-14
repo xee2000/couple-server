@@ -49,15 +49,24 @@ export class AuthService {
 
       if (error) throw new Error(error.message);
       user = created;
-    } else if (gender && user.gender !== gender) {
-      // 동의 후 성별 정보가 새로 들어온 경우 업데이트
-      const { data: updated } = await this.supabase.db
-        .from('users')
-        .update({ gender })
-        .eq('id', user.id)
-        .select()
-        .single();
-      if (updated) user = updated;
+    } else {
+      // 기존 유저: 프로필 이미지 및 성별 최신화
+      const updates: Record<string, any> = {};
+      if (profileImage && user.profile_image !== profileImage) {
+        updates.profile_image = profileImage;
+      }
+      if (gender && user.gender !== gender) {
+        updates.gender = gender;
+      }
+      if (Object.keys(updates).length > 0) {
+        const { data: updated } = await this.supabase.db
+          .from('users')
+          .update(updates)
+          .eq('id', user.id)
+          .select()
+          .single();
+        if (updated) user = updated;
+      }
     }
 
     // 3. JWT 발급
