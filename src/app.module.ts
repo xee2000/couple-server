@@ -11,6 +11,7 @@ import { CyclesModule } from './cycles/cycles.module';
 import { UsersModule } from './users/users.module';
 import { AlbumsModule } from './albums/albums.module';
 import { AnswersModule } from './answers/answers.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AnswersModule } from './answers/answers.module';
     UsersModule,
     AlbumsModule,
     AnswersModule,
+    ChatModule,
   ],
 })
 export class AppModule {}
