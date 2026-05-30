@@ -1,9 +1,10 @@
 import {
   Controller, Get, Post, Query, Body,
-  UseGuards, Request, UseInterceptors, UploadedFile,
+  UseGuards, UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/user.decorator';
 import { ChatService } from './chat.service';
 
 @Controller('chat')
@@ -14,23 +15,26 @@ export class ChatController {
   /** GET /chat?before=<ISO>&after=<ISO>  — 메시지 목록 */
   @Get()
   getMessages(
-    @Request() req,
+    @CurrentUser() user: { id: string },
     @Query('before') before?: string,
     @Query('after') after?: string,
   ) {
-    return this.chatService.getMessages(req.user.sub, before, after);
+    return this.chatService.getMessages(user.id, before, after);
   }
 
   /** POST /chat  — 텍스트 / 이모티콘 메시지 전송 */
   @Post()
-  sendMessage(@Request() req, @Body() body: any) {
-    return this.chatService.sendMessage(req.user.sub, body);
+  sendMessage(@CurrentUser() user: { id: string }, @Body() body: any) {
+    return this.chatService.sendMessage(user.id, body);
   }
 
   /** POST /chat/upload  — 이미지 / 영상 업로드 */
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
-  uploadFile(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    return this.chatService.uploadFile(req.user.sub, file);
+  uploadFile(
+    @CurrentUser() user: { id: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.chatService.uploadFile(user.id, file);
   }
 }
