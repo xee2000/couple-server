@@ -67,8 +67,10 @@ export class ChatService {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (before) query = query.lt('created_at', before);
-      if (after)  query = query.gt('created_at', after);
+      // URL 쿼리에서 '+' → ' ' 자동 디코딩 문제 보정
+      const safeTs = (ts: string) => ts.replace(/ /g, '+');
+      if (before) query = query.lt('created_at', safeTs(before));
+      if (after)  query = query.gt('created_at', safeTs(after));
 
       const { data, error } = await query;
       if (error) {
