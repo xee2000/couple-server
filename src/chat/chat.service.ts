@@ -17,8 +17,7 @@ export class ChatService {
       .from('couples')
       .select('id')
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .not('user2_id', 'is', null)
-      .maybeSingle();
+      .single();
     if (!data) throw new NotFoundException('커플이 연결되지 않았습니다.');
     return data.id;
   }
