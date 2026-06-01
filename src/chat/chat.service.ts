@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
@@ -12,7 +13,10 @@ cloudinary.config({
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private supabase: SupabaseService) {}
+  constructor(
+    private supabase: SupabaseService,
+    private notifications: NotificationsService,
+  ) {}
 
   private async getCoupleId(userId: string): Promise<string> {
     this.logger.debug(`getCoupleId 조회 → userId: ${userId}`);
@@ -124,11 +128,57 @@ export class ChatService {
       }
 
       this.logger.log(`메시지 저장 완료 → id: ${data.id}`);
+
+      // 파트너에게 FCM 발송 (비동기, 실패해도 무시)
+      this.notifyPartner(userId, coupleId, body).catch((e) =>
+        this.logger.warn(`채팅 알림 발송 실패: ${e?.message}`),
+      );
+
       return { data };
     } catch (e) {
       this.logger.error(`[POST /chat] 처리 중 예외 → ${e?.message}`, e?.stack);
       throw e;
     }
+  }
+
+  /** 파트너에게 채팅 알림 발송 */
+  private async notifyPartner(
+    senderId: string,
+    coupleId: string,
+    body: { message_type: string; content?: string; emoticon?: string },
+  ) {
+    const { data: couple } = await this.supabase.db
+      .from('couples')
+      .select('user1_id, user2_id')
+      .eq('id', coupleId)
+      .single();
+    if (!couple) return;
+
+    const partnerId =
+      couple.user1_id === senderId ? couple.user2_id : couple.user1_id;
+    if (!partnerId) return;
+
+    const [{ data: me }, { data: partner }] = await Promise.all([
+      this.supabase.db.from('users').select('nickname').eq('id', senderId).single(),
+      this.supabase.db.from('users').select('fcm_token').eq('id', partnerId).single(),
+    ]);
+
+    if (!partner?.fcm_token) return;
+
+    const senderName = me?.nickname ?? '상대방';
+    const msgPreview =
+      body.message_type === 'emoticon'
+        ? '이모티콘을 보냈어요 😊'
+        : body.message_type === 'image'
+          ? '사진을 보냈어요 🖼️'
+          : (body.content ?? '').substring(0, 50);
+
+    await this.notifications.sendToToken(
+      partner.fcm_token,
+      `💬 ${senderName}`,
+      msgPreview,
+      { type: 'chat', screen: 'chat' },
+    );
   }
 
   /** 이미지 / 파일 Cloudinary 업로드 */
